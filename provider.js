@@ -11,20 +11,60 @@ class Provider {
     }
 
     async search(opts) {
-        const url = `${this.api}&c=1_2&q=${encodeURIComponent(opts.query)}`
+        const cleanedQuery = this.cleanSearchTerm(opts.query);
+        const url = `${this.api}&c=1_2&q=${encodeURIComponent(cleanedQuery)}`
         return await this.fetchAndParseRss(url)
     }
 
     async smartSearch(opts) {
-        let q = opts.query || opts.media.romajiTitle || opts.media.englishTitle || ""
-        if (opts.resolution) q += ` ${opts.resolution}`
-        if (opts.batch) q += ' Batch'
-        else if (opts.episodeNumber > 0) {
-            const ep = opts.episodeNumber < 10 ? `0${opts.episodeNumber}` : `${opts.episodeNumber}`
-            q += ` ${ep}`
+        // Try Romaji first, then English title if Romaji is missing
+        let baseTitle = opts.media.romajiTitle || opts.media.englishTitle || opts.query || "";
+        
+        // Clean up strict punctuation characters that break Nyaa's engine
+        baseTitle = this.cleanSearchTerm(baseTitle);
+
+        let q = baseTitle;
+
+        // Add resolution if specified
+        if (opts.resolution) {
+            q += ` ${opts.resolution}`;
         }
-        const url = `${this.api}&c=1_2&q=${encodeURIComponent(q)}`
-        return await this.fetchAndParseRss(url)
+
+        // Add batch modifier or pad episode numbers perfectly (e.g., "01" instead of "1")
+        if (opts.batch) {
+            q += ' Batch';
+        } else if (opts.episodeNumber > 0) {
+            const ep = opts.episodeNumber < 10 ? `0${opts.episodeNumber}` : `${opts.episodeNumber}`;
+            q += ` ${ep}`;
+        }
+
+        let url = `${this.api}&c=1_2&q=${encodeURIComponent(q)}`;
+        let results = await this.fetchAndParseRss(url);
+
+        // FALLBACK: If Romaji returned 0 results, try again immediately using the English title
+        if (results.length === 0 && opts.media.englishTitle && opts.media.englishTitle !== opts.media.romajiTitle) {
+            let engTitle = this.cleanSearchTerm(opts.media.englishTitle);
+            let fallbackQ = engTitle;
+            if (opts.resolution) fallbackQ += ` ${opts.resolution}`;
+            if (opts.batch) fallbackQ += ' Batch';
+            else if (opts.episodeNumber > 0) {
+                const ep = opts.episodeNumber < 10 ? `0${opts.episodeNumber}` : `${opts.episodeNumber}`;
+                fallbackQ += ` ${ep}`;
+            }
+            url = `${this.api}&c=1_2&q=${encodeURIComponent(fallbackQ)}`;
+            results = await this.fetchAndParseRss(url);
+        }
+
+        return results;
+    }
+
+    // Helper utility to remove nasty characters that ruin Nyaa text lookups
+    cleanSearchTerm(text) {
+        if (!text) return "";
+        return text
+            .replace(/[:,\-–\!]/g, ' ') // Replace colons, commas, hyphens, exclamations with spaces
+            .replace(/\s+/g, ' ')       // Condense multiple spaces down to a single space
+            .trim();
     }
 
     async fetchAndParseRss(url) {
