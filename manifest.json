@@ -1,0 +1,12 @@
+{
+  "id": "nyaa-rss-provider",
+  "name": "Nyaa RSS Provider",
+  "description": "Fetches anime torrents natively via Nyaa.si's RSS engine.",
+  "manifestURI": "https://raw.githubusercontent.com/tetolinux/seanime-torrent-anime/main/manifest.json",
+  "version": "1.0.0",
+  "author": "tetolinux",
+  "type": "anime-torrent-provider",
+  "language": "javascript",
+  "lang": "en",
+  "payloadURI": "https://raw.githubusercontent.com/tetolinux/seanime-torrent-anime/main/provider.js"
+}
